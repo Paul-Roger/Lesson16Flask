@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link href="{{url_for('static', filename='styles.css')}}" rel="stylesheet" type="text/css" />
+    <title>Результаты последнего поиска</title>
+</head>
+<body>
+<h1 align="center">
+    Запрос по ключевому слову {{req_keyword}} и дате {{req_date}}
+</h1>
+<br>
+{{info_msg}}
+<br>
+<table id="demo">
+  <!-- HEADER ROW -->
+  <tr>
+    {% for col in header %}
+    <th>{{ col }}</th>
+    {% endfor %}
+  </tr>
+
+  <!-- DATA ROWS -->
+  {% for row in rows %}
+  <tr>
+    {% for col in row %}
+    <td>{{ col }}</td>
+    {% endfor %}
+  </tr>
+  {% endfor %}
+</table>
+
+    <p  align="center">
+        <a href="/">На главную</a>
+    </p>
+</body>
+</html>

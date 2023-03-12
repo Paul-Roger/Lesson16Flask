@@ -1,0 +1,3 @@
+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
+MY_ID = 'Paul-Roger'
+MY_TOKEN = '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'
