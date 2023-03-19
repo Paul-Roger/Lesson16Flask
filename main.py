@@ -3,6 +3,7 @@ from datetime import date
 import os
 from flask import Flask, render_template, request, flash
 import csv
+import sqlite3
 
 #Constants
 DefDateStr = "2023-03-01"
@@ -41,8 +42,17 @@ def search_get():
         return render_template('noresults.html', info_msg = 'Поиск недоступен, поскольку идёт обработка результатов предыдущего поиска')
     else:
         print("Open search GET")
-        return render_template('search.html')
-
+        # Подключение к базе данных
+        conn = sqlite3.connect('AutoDB.sqlite')
+        # Создаем курсор
+        cursor = conn.cursor()
+        cursor.execute('select BrandName from AutoBrand order by NoOfSearches desc Limit 15')
+        result = cursor.fetchall()
+        brand_list = []
+        for d in result:
+            brand_list.append(d[0])
+        conn.close()
+        return render_template('search.html', brand_list = brand_list)
 
 @app.route('/search/', methods=['POST'])
 def search_post():
