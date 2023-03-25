@@ -27,6 +27,7 @@ def parser(filename, search_str, date_str):
     dt_startdate = date.fromisoformat(date_str)
 
     is_found = 0
+    brand_id = 0
     next_page = True
     headers = {
     "Accept" : "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
@@ -110,17 +111,21 @@ def parser(filename, search_str, date_str):
                     file_row[3] = ""
             file_row[3] = file_row[3].replace('\n',' ')
             if file_row[0].find(search_str) > 0 or file_row[3].find(search_str) > 0:
-                search_templ = search_str + '%'
-                cursor.execute('select * from AutoBrand where BrandName Like ?', search_templ)
-                if cursor.rowcount
-
-
-                table_row = (i, file_row[0], file_row[1], file_row[2], file_row[3])
-                n = cursor.execute(
-                    'INSERT INTO SearchResult (BrandID, Title, PubDate, Link, ShortText) VALUES (?,?,?,?,?)', table_row)
-                conn.commit()
-
-
+                if brand_id <= 0:
+                    search_templ = search_str + '%'
+                    cursor.execute('select * from AutoBrand where BrandName Like ?', (search_templ,))
+                    db_record = cursor.fetchone()
+                    print(search_str, search_templ)
+                    print(db_record)
+                    if db_record != None: #cursor.rowcount > 0:
+                        #db_record = cursor.fetchone()
+                        brand_id = db_record[0]
+                        brand_cnt = db_record[2] + 1
+                        cursor.execute('update AutoBrand set NoOfSearches = ? where ID Like ?', (brand_cnt, brand_id,))
+                    else:
+                        cursor.execute('insert into AutoBrand (BrandName, NoOfSearches) VALUES (?,?)', (search_str, 1,))
+                table_row = (brand_id, file_row[0], file_row[1], file_row[2], file_row[3])
+                n = cursor.execute('INSERT INTO SearchResult (BrandID, Title, PubDate, Link, ShortText) VALUES (?,?,?,?,?)', table_row)
                 is_found +=1
             #print(art_text)
 
@@ -134,10 +139,10 @@ def parser(filename, search_str, date_str):
             next_page = True
     #end while
 
-    cursor.execute('select BrandName from AutoBrand order by NoOfSearches desc Limit 15')
-    result = cursor.fetchall()
-
-    print("\n\n ПОИСК ЗАКОНЧЕН. Результаты в файле " + file_name)
+    #print("\n\n ПОИСК ЗАКОНЧЕН. Результаты в файле " + file_name)
+    print("\n\n ПОИСК ЗАКОНЧЕН. Результаты в БД")
   #  f.close()
+    if brand_id > 0:
+        conn.commit()
     conn.close()
     return(1)
