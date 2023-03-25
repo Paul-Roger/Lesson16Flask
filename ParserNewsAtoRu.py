@@ -4,6 +4,7 @@ import requests
 from bs4 import BeautifulSoup
 import csv
 from datetime import date
+import sqlite3
 
 #suppress SSL sertificate error
 from urllib3.exceptions import InsecureRequestWarning
@@ -25,6 +26,8 @@ def parser(filename, search_str, date_str):
     #print(dt_startdate)
     dt_startdate = date.fromisoformat(date_str)
 
+    is_found = 0
+    brand_id = 0
     next_page = True
     headers = {
     "Accept" : "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
@@ -45,11 +48,16 @@ def parser(filename, search_str, date_str):
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36"
     }
 
+    # Подключение к базе данных
+    conn = sqlite3.connect('AutoDB.sqlite')
+    # Создаем курсор
+    cursor = conn.cursor()
+
     #open CSV file
-    f = open(file_name, 'w', encoding='utf-8-sig', newline='') #, encoding="utf-8'
-    writer = csv.writer(f, quoting=csv.QUOTE_NONNUMERIC, delimiter=';')
+#    f = open(file_name, 'w', encoding='utf-8-sig', newline='') #, encoding="utf-8'
+#    writer = csv.writer(f, quoting=csv.QUOTE_NONNUMERIC, delimiter=';')
     file_row = ["Заголовок", "Дата", "Ссылка", "Начало статьи"]
-    writer.writerow(file_row)
+#    writer.writerow(file_row)
 
     while next_page:
         url = f'{url_base}{curr_page}'
@@ -81,6 +89,7 @@ def parser(filename, search_str, date_str):
             req_art.encoding = 'utf8'
             art_soup = BeautifulSoup(req_art.text, 'html.parser')
             #print(soup)
+
             file_row[0] = title.text.strip()
             print(file_row[0])
             file_row[1] = dt_list[0]
@@ -102,7 +111,22 @@ def parser(filename, search_str, date_str):
                     file_row[3] = ""
             file_row[3] = file_row[3].replace('\n',' ')
             if file_row[0].find(search_str) > 0 or file_row[3].find(search_str) > 0:
-                writer.writerow(file_row)
+                if brand_id <= 0:
+                    search_templ = search_str + '%'
+                    cursor.execute('select * from AutoBrand where BrandName Like ?', (search_templ,))
+                    db_record = cursor.fetchone()
+                    print(search_str, search_templ)
+                    print(db_record)
+                    if db_record != None: #cursor.rowcount > 0:
+                        #db_record = cursor.fetchone()
+                        brand_id = db_record[0]
+                        brand_cnt = db_record[2] + 1
+                        cursor.execute('update AutoBrand set NoOfSearches = ? where ID Like ?', (brand_cnt, brand_id,))
+                    else:
+                        cursor.execute('insert into AutoBrand (BrandName, NoOfSearches) VALUES (?,?)', (search_str, 1,))
+                table_row = (brand_id, file_row[0], file_row[1], file_row[2], file_row[3])
+                n = cursor.execute('INSERT INTO SearchResult (BrandID, Title, PubDate, Link, ShortText) VALUES (?,?,?,?,?)', table_row)
+                is_found +=1
             #print(art_text)
 
         #Check if last page
@@ -115,7 +139,10 @@ def parser(filename, search_str, date_str):
             next_page = True
     #end while
 
-    print("\n\n ПОИСК ЗАКОНЧЕН. Результаты в файле " + file_name)
-
-    f.close()
+    #print("\n\n ПОИСК ЗАКОНЧЕН. Результаты в файле " + file_name)
+    print("\n\n ПОИСК ЗАКОНЧЕН. Результаты в БД")
+  #  f.close()
+    if brand_id > 0:
+        conn.commit()
+    conn.close()
     return(1)
