@@ -2,8 +2,9 @@ import ParserNewsAtoRu
 from datetime import date
 import os
 from flask import Flask, render_template, request, flash, redirect
-import csv
-import sqlite3
+from sqlalchemy import create_engine, MetaData, Table, Integer, String, \
+    Column, DateTime, ForeignKey, Numeric
+from sqlalchemy.ext.declarative import declarative_base
 
 #Constants
 DefDateStr = "2023-03-01"
