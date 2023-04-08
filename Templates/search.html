@@ -55,11 +55,9 @@
                                 <label for="AutoSel" >Выберите марку авто:</label>
                                 <input list="CarMake" id="AutoSel" name="req_auto" value=""/>
                                 <datalist id="CarMake">
-                                    <option value="Mercedes"></option> <!-- selected -->
-                                    <option value="Volswagen"></option>
-                                    <option value="BMW"></option>
-                                    <option value="Tesla"></option>
-                                    <option value="Toyota"></option>
+                                    {% for brand in brand_list %}
+                                    <option value={{brand}}></option>
+                                    {% endfor %}
                                 </datalist>
                             </p>
                             <label>или напишите её здесь:</label>

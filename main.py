@@ -1,14 +1,15 @@
 import ParserNewsAtoRu
 from datetime import date
-import os
-from flask import Flask, render_template, request, flash
-import csv
+from flask import Flask, render_template, request, flash, redirect
+from DBaccessLayer import *
 
 #Constants
-DefDateStr = "2023-03-01"
+DefDateStr = "2023-03-15"
 DefSearchStr = "Mercedes"
 FileName = 'resultfile'
-file_name = str(FileName) + ".csv"
+keyword = ''
+
+session = session_init()
 
 #Global flag
 req_act = False
@@ -41,14 +42,15 @@ def search_get():
         return render_template('noresults.html', info_msg = 'Поиск недоступен, поскольку идёт обработка результатов предыдущего поиска')
     else:
         print("Open search GET")
-        return render_template('search.html')
+        # Подключение к базе данных
 
+        brand_list = brandlist(session)
+        return render_template('search.html', brand_list = brand_list)
 
 @app.route('/search/', methods=['POST'])
 def search_post():
     # Как получть данные формы
-    keyword = ''
-    global req_act
+    global req_act, keyword
     print("search-PUT", req_act)
     if req_act:
         print("busy, No Results")
@@ -74,15 +76,19 @@ def search_post():
         str_startdate = DefDateStr
 
     flash('Ваш запрос принят, обрабтка занимает длительное время. Ожидайте результата')
+
+    # очичтить данные в БД
+    cleararticles(session, keyword)
+
     req_act = True
     parser_result = 0
     print("parser call")
-    render_template('search.html')
-    parser_result = ParserNewsAtoRu.parser(FileName, keyword, str_startdate)
+###    render_template('search.html')
+    parser_result = ParserNewsAtoRu.parser(FileName, keyword, str_startdate, session)
     # print("Parser Call")
     req_act = False
     if parser_result > 0:
-        return render_template('results.html')
+        return redirect('/results/')
     else:
         return render_template('noresults.html', info_msg = 'Не найдены данные соотествующие критериям поиска')
 
@@ -90,18 +96,16 @@ def search_post():
 @app.route('/results/')
 def results():
     global req_act
-    print("result", req_act)
+    global keyword
+#    print("result", req_act, keyword)
     if req_act:
         print("busy, No Results")
         return render_template('noresults.html',info_msg='Результаты пока недостуаны, поскольку идёт обработка результатов поиска')
-    if os.path.exists(file_name):
-        print("File found - Results")
-
-        with open("resultfile.csv", encoding='utf-8-sig', newline='') as file:
-            reader = csv.reader(file, delimiter=';', quotechar='"')
-            header = next(reader)
-            return render_template("results.html", header=header, rows=reader)
-
+    db_rows = articlelist(session, keyword)
+#    print(db_rows)
+    if db_rows:
+        header = ["Заголовок", "Дата", "Ссылка", "Начало статьи"]
+        return render_template("results.html", header=header, rows=db_rows)
     else:
         print("No File - No Results")
         return render_template('noresults.html',info_msg='Результаты недостуаны, что-то пошло не так')

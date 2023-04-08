@@ -1,15 +1,17 @@
 # Parcer for Auto.ru magazine news (https://mag.auto.ru/). Return file with articles for keyword and data (all article after that date)
 # for exapmple, use key word BMW to get articles, where BMW was mentioned
+
+#import csv
+#import sqlite3
+from datetime import date
 import requests
 from bs4 import BeautifulSoup
-import csv
-from datetime import date
-
 #suppress SSL sertificate error
 from urllib3.exceptions import InsecureRequestWarning
 from urllib3 import disable_warnings
+from DBaccessLayer import *
 
-def parser(filename, search_str, date_str):
+def parser(filename, search_str, date_str, session:Session):
     disable_warnings(InsecureRequestWarning)
     url_base="https://mag.auto.ru/theme/news/?page="
     curr_page = 1
@@ -25,6 +27,8 @@ def parser(filename, search_str, date_str):
     #print(dt_startdate)
     dt_startdate = date.fromisoformat(date_str)
 
+    is_found = 0
+    brand_id = 0
     next_page = True
     headers = {
     "Accept" : "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
@@ -45,11 +49,7 @@ def parser(filename, search_str, date_str):
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36"
     }
 
-    #open CSV file
-    f = open(file_name, 'w', encoding='utf-8-sig', newline='') #, encoding="utf-8'
-    writer = csv.writer(f, quoting=csv.QUOTE_NONNUMERIC, delimiter=';')
     file_row = ["Заголовок", "Дата", "Ссылка", "Начало статьи"]
-    writer.writerow(file_row)
 
     while next_page:
         url = f'{url_base}{curr_page}'
@@ -81,6 +81,7 @@ def parser(filename, search_str, date_str):
             req_art.encoding = 'utf8'
             art_soup = BeautifulSoup(req_art.text, 'html.parser')
             #print(soup)
+
             file_row[0] = title.text.strip()
             print(file_row[0])
             file_row[1] = dt_list[0]
@@ -102,8 +103,18 @@ def parser(filename, search_str, date_str):
                     file_row[3] = ""
             file_row[3] = file_row[3].replace('\n',' ')
             if file_row[0].find(search_str) > 0 or file_row[3].find(search_str) > 0:
-                writer.writerow(file_row)
-            #print(art_text)
+                if brand_id <= 0:
+                    brand_id = check_add(session,  search_str)
+                    print("brand_id", brand_id)
+
+
+                if isinstance(file_row[1], str):
+                    file_row[1] = date.fromisoformat(file_row[1])
+                print("*** add_article Parser***", brand_id, file_row[0], file_row[1], type(file_row[1]), file_row[2], file_row[3])
+                add_article(session, brand_id, file_row[0], file_row[1], file_row[2], file_row[3])
+#                table_row = (brand_id, file_row[0], file_row[1], file_row[2], file_row[3])
+#                n = cursor.execute('INSERT INTO SearchResult (BrandID, Title, PubDate, Link, ShortText) VALUES (?,?,?,?,?)', table_row)
+                is_found +=1
 
         #Check if last page
         #find Class in soup
@@ -115,7 +126,7 @@ def parser(filename, search_str, date_str):
             next_page = True
     #end while
 
-    print("\n\n ПОИСК ЗАКОНЧЕН. Результаты в файле " + file_name)
+    #print("\n\n ПОИСК ЗАКОНЧЕН. Результаты в файле " + file_name)
+    print("\n\n ПОИСК ЗАКОНЧЕН. Результаты в БД")
 
-    f.close()
     return(1)
