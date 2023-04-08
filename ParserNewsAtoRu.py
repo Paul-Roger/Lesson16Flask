@@ -1,16 +1,17 @@
 # Parcer for Auto.ru magazine news (https://mag.auto.ru/). Return file with articles for keyword and data (all article after that date)
 # for exapmple, use key word BMW to get articles, where BMW was mentioned
+
+#import csv
+#import sqlite3
+from datetime import date
 import requests
 from bs4 import BeautifulSoup
-import csv
-from datetime import date
-import sqlite3
-
 #suppress SSL sertificate error
 from urllib3.exceptions import InsecureRequestWarning
 from urllib3 import disable_warnings
+from DBaccessLayer import *
 
-def parser(filename, search_str, date_str):
+def parser(filename, search_str, date_str, session:Session):
     disable_warnings(InsecureRequestWarning)
     url_base="https://mag.auto.ru/theme/news/?page="
     curr_page = 1
@@ -49,9 +50,9 @@ def parser(filename, search_str, date_str):
     }
 
     # Подключение к базе данных
-    conn = sqlite3.connect('AutoDB.sqlite')
+#    conn = sqlite3.connect('AutoDB.sqlite')
     # Создаем курсор
-    cursor = conn.cursor()
+#    cursor = conn.cursor()
 
     #open CSV file
 #    f = open(file_name, 'w', encoding='utf-8-sig', newline='') #, encoding="utf-8'
@@ -112,22 +113,17 @@ def parser(filename, search_str, date_str):
             file_row[3] = file_row[3].replace('\n',' ')
             if file_row[0].find(search_str) > 0 or file_row[3].find(search_str) > 0:
                 if brand_id <= 0:
-                    search_templ = search_str + '%'
-                    cursor.execute('select * from AutoBrand where BrandName Like ?', (search_templ,))
-                    db_record = cursor.fetchone()
-                    print(search_str, search_templ)
-                    print(db_record)
-                    if db_record != None: #cursor.rowcount > 0:
-                        #db_record = cursor.fetchone()
-                        brand_id = db_record[0]
-                        brand_cnt = db_record[2] + 1
-                        cursor.execute('update AutoBrand set NoOfSearches = ? where ID Like ?', (brand_cnt, brand_id,))
-                    else:
-                        cursor.execute('insert into AutoBrand (BrandName, NoOfSearches) VALUES (?,?)', (search_str, 1,))
-                table_row = (brand_id, file_row[0], file_row[1], file_row[2], file_row[3])
-                n = cursor.execute('INSERT INTO SearchResult (BrandID, Title, PubDate, Link, ShortText) VALUES (?,?,?,?,?)', table_row)
+                    brand_id = check_add(session,  search_str)
+                    print("brand_id", brand_id)
+
+
+                if isinstance(file_row[1], str):
+                    file_row[1] = date.fromisoformat(file_row[1])
+                print("*** add_article Parser***", brand_id, file_row[0], file_row[1], type(file_row[1]), file_row[2], file_row[3])
+                add_article(session, brand_id, file_row[0], file_row[1], file_row[2], file_row[3])
+#                table_row = (brand_id, file_row[0], file_row[1], file_row[2], file_row[3])
+#                n = cursor.execute('INSERT INTO SearchResult (BrandID, Title, PubDate, Link, ShortText) VALUES (?,?,?,?,?)', table_row)
                 is_found +=1
-            #print(art_text)
 
         #Check if last page
         #find Class in soup
@@ -141,8 +137,5 @@ def parser(filename, search_str, date_str):
 
     #print("\n\n ПОИСК ЗАКОНЧЕН. Результаты в файле " + file_name)
     print("\n\n ПОИСК ЗАКОНЧЕН. Результаты в БД")
-  #  f.close()
-    if brand_id > 0:
-        conn.commit()
-    conn.close()
+
     return(1)

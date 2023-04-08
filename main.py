@@ -1,17 +1,15 @@
 import ParserNewsAtoRu
 from datetime import date
-import os
 from flask import Flask, render_template, request, flash, redirect
-from sqlalchemy import create_engine, MetaData, Table, Integer, String, \
-    Column, DateTime, ForeignKey, Numeric
-from sqlalchemy.ext.declarative import declarative_base
+from DBaccessLayer import *
 
 #Constants
-DefDateStr = "2023-03-01"
+DefDateStr = "2023-03-15"
 DefSearchStr = "Mercedes"
 FileName = 'resultfile'
-file_name = str(FileName) + ".csv"
 keyword = ''
+
+session = session_init()
 
 #Global flag
 req_act = False
@@ -45,15 +43,8 @@ def search_get():
     else:
         print("Open search GET")
         # Подключение к базе данных
-        conn = sqlite3.connect('AutoDB.sqlite')
-        # Создаем курсор
-        cursor = conn.cursor()
-        cursor.execute('select BrandName from AutoBrand order by NoOfSearches desc Limit 15')
-        result = cursor.fetchall()
-        brand_list = []
-        for d in result:
-            brand_list.append(d[0])
-        conn.close()
+
+        brand_list = brandlist(session)
         return render_template('search.html', brand_list = brand_list)
 
 @app.route('/search/', methods=['POST'])
@@ -85,25 +76,15 @@ def search_post():
         str_startdate = DefDateStr
 
     flash('Ваш запрос принят, обрабтка занимает длительное время. Ожидайте результата')
-    # Подключение к базе данных
-    conn = sqlite3.connect('AutoDB.sqlite')
-    # Создаем курсор
-    cursor = conn.cursor()
-    search_templ = keyword + '%'
-    print('search', search_templ)
-    cursor.execute('select * from AutoBrand where BrandName Like ?', (search_templ,))
-    result = cursor.fetchone()
-    print(result)
-#clear search results
-    cursor.execute('delete from SearchResult where BrandID = ?', (result[0], ))
-    conn.commit()
-    conn.close()
+
+    # очичтить данные в БД
+    cleararticles(session, keyword)
 
     req_act = True
     parser_result = 0
     print("parser call")
 ###    render_template('search.html')
-    parser_result = ParserNewsAtoRu.parser(FileName, keyword, str_startdate)
+    parser_result = ParserNewsAtoRu.parser(FileName, keyword, str_startdate, session)
     # print("Parser Call")
     req_act = False
     if parser_result > 0:
@@ -116,33 +97,15 @@ def search_post():
 def results():
     global req_act
     global keyword
-    print("result", req_act)
+#    print("result", req_act, keyword)
     if req_act:
         print("busy, No Results")
         return render_template('noresults.html',info_msg='Результаты пока недостуаны, поскольку идёт обработка результатов поиска')
-    db_rows = []
-    # Подключение к базе данных
-    conn = sqlite3.connect('AutoDB.sqlite')
-    # Создаем курсор
-    cursor = conn.cursor()
-    search_templ = keyword + '%'
-    print("search_templ = ", search_templ)
-    cursor.execute('select * from AutoBrand where BrandName Like ?', (search_templ,))
-    result = cursor.fetchone()
-    if result != None:
-        cursor.execute('select Title, PubDate, Link, ShortText from SearchResult where BrandID = ?', (result[0],))
-        db_rows = cursor.fetchall()
-        print(db_rows)
-        conn.close()
-        print(db_rows)
+    db_rows = articlelist(session, keyword)
+#    print(db_rows)
+    if db_rows:
         header = ["Заголовок", "Дата", "Ссылка", "Начало статьи"]
         return render_template("results.html", header=header, rows=db_rows)
-        """   if os.path.exists(file_name):
-        print("File found - Results")
-        with open("resultfile.csv", encoding='utf-8-sig', newline='') as file:
-        reader = csv.reader(file, delimiter=';', quotechar='"')
-        header = next(reader)"""
-
     else:
         print("No File - No Results")
         return render_template('noresults.html',info_msg='Результаты недостуаны, что-то пошло не так')

@@ -1,5 +1,5 @@
 from sqlalchemy import create_engine, MetaData, Table, Integer, String, \
-    Column, ForeignKey, Numeric, Date
+    Column, ForeignKey, Numeric, Date, delete
 from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -20,24 +20,16 @@ class AutoBrand(Base):
     def __str__(self):
         return f'{self.ID}) {self.NoOfSearches} {self.NoOfSearches}'
 
-    def check_add(self, brandname) -> Integer:
-        with Session() as session:
-           brandrec = session.query(AutoBrand).filter(AutoBrand.BrandName.like(f'%{brandname}%')).first()
-           if brandrec == None:
-               session.add(AutoBrand(brandname))
-               session.commit()
-               brandrec = session.query(AutoBrand).filter(AutoBrand.BrandName.like(f'%{brandname}%')).first()
-           return brandrec[0]
 
 class SearchResult(Base):
     __tablename__ = 'SearchResult'
     ID = Column(Integer, primary_key=True, autoincrement=True)
-    BrandID = Column(Integer, ForeignKey('SutoBrand.ID'), nullable=False)
+    BrandID = Column(Integer, ForeignKey('AutoBrand.ID'), nullable=False)
     Title = Column(String(256), nullable=False)
     PubDate = Column(Date, nullable=True)
     Link = Column(String(256), nullable=False)
     ShortText = Column(String(256), nullable=True)
-    Brand = relationship("AutoBrand")
+    #autobrand = relationship('AutoBrand', backref='results')
 
     def __init__(self, brandid, title, pubdate, link, shorttext):
         self.BrandID = brandid
@@ -57,9 +49,9 @@ Session = sessionmaker(bind=engine)
 session = Session()
 
 #Проверим смисок автобрендов
-record_no = session.query(AutoBrand).all().count()
+record_no = session.query(AutoBrand).count()
 if record_no <= 0:
     # первоначальное заполнение
     session.add_all([AutoBrand('Toyota', 0), AutoBrand('Tesla', 0), AutoBrand('Vokswagen', 0), AutoBrand('Mercedes', 0), AutoBrand('BMW', 0), AutoBrand('Renault', 0)])
     session.commit()
-
+session.close()
