@@ -49,16 +49,7 @@ def parser(filename, search_str, date_str, session:Session):
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36"
     }
 
-    # Подключение к базе данных
-#    conn = sqlite3.connect('AutoDB.sqlite')
-    # Создаем курсор
-#    cursor = conn.cursor()
-
-    #open CSV file
-#    f = open(file_name, 'w', encoding='utf-8-sig', newline='') #, encoding="utf-8'
-#    writer = csv.writer(f, quoting=csv.QUOTE_NONNUMERIC, delimiter=';')
     file_row = ["Заголовок", "Дата", "Ссылка", "Начало статьи"]
-#    writer.writerow(file_row)
 
     while next_page:
         url = f'{url_base}{curr_page}'
